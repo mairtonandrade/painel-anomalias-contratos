@@ -4,8 +4,11 @@ Painel Streamlit para visualização das anomalias (tabela anomalias_contratos).
 Como executar:
   streamlit run painel_anomalias_streamlit.py
 
-Configuração via variáveis de ambiente:
-  DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+Fonte de dados (prioridade):
+  1) CSV local (recomendado para Streamlit Cloud):
+     - coloque `data/anomalias_contratos.csv` no repositório
+  2) PostgreSQL (opcional):
+     - DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD (env vars ou st.secrets)
 """
 
 from __future__ import annotations
@@ -42,6 +45,16 @@ def get_db_conn():
 
 @st.cache_data(ttl=60)
 def carregar_anomalias() -> pd.DataFrame:
+    # Se existir CSV local no repo, usa ele (melhor para publicar no Streamlit Cloud).
+    csv_path = os.path.join(os.path.dirname(__file__), "data", "anomalias_contratos.csv")
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        if "data_assinatura" in df.columns:
+            df["data_assinatura"] = pd.to_datetime(df["data_assinatura"], errors="coerce").dt.date
+        if "detectado_em" in df.columns:
+            df["detectado_em"] = pd.to_datetime(df["detectado_em"], errors="coerce")
+        return df
+
     sql = """
         SELECT
             numero_contrato,
